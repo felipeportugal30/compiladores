@@ -1,5 +1,3 @@
-"""Interface de linha de comando do analisador lexico."""
-
 from __future__ import annotations
 
 import argparse
@@ -9,14 +7,14 @@ from pathlib import Path
 from lexer import Token, analyze
 
 
-def _cell(value: object) -> str:
+def _format_cell(value: object) -> str:
     if value is None:
         return "-"
     return json.dumps(value, ensure_ascii=False) if isinstance(value, str) else str(value)
 
 
-def _table(headers: list[str], rows: list[list[object]]) -> str:
-    text_rows = [[_cell(value) for value in row] for row in rows]
+def _format_table(headers: list[str], rows: list[list[object]]) -> str:
+    text_rows = [[_format_cell(value) for value in row] for row in rows]
     widths = [len(header) for header in headers]
     for row in text_rows:
         widths = [max(width, len(value)) for width, value in zip(widths, row)]
@@ -28,17 +26,21 @@ def _table(headers: list[str], rows: list[list[object]]) -> str:
 
 
 def print_result(tokens: list[Token], symbols: dict[str, int]) -> None:
+    token_rows = [
+        [index, token.type, token.lexeme, token.attribute, token.line, token.column]
+        for index, token in enumerate(tokens, 1)
+    ]
+    symbol_rows = [[identifier, count] for identifier, count in symbols.items()]
+
     print("\nTABELA DE TOKENS")
-    print(_table(
-        ["#", "tipo", "lexema", "atributo", "linha", "coluna"],
-        [[index, token.type, token.lexeme, token.attribute, token.line, token.column]
-         for index, token in enumerate(tokens, 1)],
-    ))
+    print(
+        _format_table(
+            ["#", "tipo", "lexema", "atributo", "linha", "coluna"],
+            token_rows,
+        )
+    )
     print("\nTABELA DE SIMBOLOS")
-    print(_table(
-        ["identificador", "ocorrencias"],
-        [[identifier, count] for identifier, count in symbols.items()],
-    ) if symbols else "(vazia)")
+    print(_format_table(["identificador", "ocorrencias"], symbol_rows) if symbols else "(vazia)")
     errors = sum(token.type == "ERROR" for token in tokens)
     print(f"\nResumo: {len(tokens) - 1} token(s), {len(symbols)} simbolo(s), {errors} erro(s).")
 

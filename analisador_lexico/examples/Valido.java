@@ -5,7 +5,6 @@ public class Valido {
         char quebra = '\n';
         String mensagem = "Ola, compiladores!";
 
-        // Comentário de teste
         if (contador > 0 && preco >= 10.0) {
             contador += 1;
             System.out.println(mensagem);

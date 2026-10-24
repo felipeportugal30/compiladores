@@ -1,5 +1,3 @@
-"""Analisador sintatico descendente preditivo dirigido por tabela LL(1)."""
-
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -75,7 +73,6 @@ class ParseResult:
 
 
 def normalize_token(token: Any) -> ParserToken:
-    """Converte um token do Trabalho 1 para um terminal da gramatica."""
     if token.type == "IDENTIFIER":
         terminal = "id"
     elif token.type in {"INTEGER_LITERAL", "FLOAT_LITERAL"}:
@@ -92,8 +89,6 @@ def normalize_tokens(tokens: Iterable[Any]) -> list[ParserToken]:
 
 
 class PredictiveParser:
-    """Executa o algoritmo de pilha e recupera erros por modo panico."""
-
     def __init__(self, analysis: GrammarAnalysis | None = None) -> None:
         self.analysis = analysis or analyze_grammar()
         self.nonterminals = set(GRAMMAR)

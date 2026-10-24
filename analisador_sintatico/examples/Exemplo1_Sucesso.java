@@ -1,4 +1,3 @@
-// Exemplo 1: programa sintaticamente correto
 public class TesteSucesso {
     public static void main() {
         int a;

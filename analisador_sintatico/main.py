@@ -1,5 +1,3 @@
-"""Interface de linha de comando do analisador sintatico LL(1)."""
-
 from __future__ import annotations
 
 import argparse
@@ -11,9 +9,9 @@ REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
 if str(REPOSITORY_ROOT) not in sys.path:
     sys.path.insert(0, str(REPOSITORY_ROOT))
 
-from analisador_lexico.lexer import analyze  # noqa: E402
+from analisador_lexico.lexer import analyze
 
-from grammar import (  # noqa: E402
+from grammar import (
     ENDMARKER,
     EPSILON,
     GRAMMAR,
@@ -22,7 +20,7 @@ from grammar import (  # noqa: E402
     format_production,
     ordered_symbols,
 )
-from parser import ParseResult, PredictiveParser  # noqa: E402
+from parser import ParseResult, PredictiveParser
 
 
 def parse_args() -> argparse.Namespace:

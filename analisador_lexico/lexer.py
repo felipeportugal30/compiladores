@@ -1,10 +1,3 @@
-"""Analisador lexico manual para um subconjunto da linguagem Java.
-
-O modulo nao usa expressoes regulares nem geradores de analisadores. A entrada e
-percorrida por :class:`TwoBufferStream`, que simula o esquema classico de dois
-buffers com os ponteiros ``begin`` e ``forward``.
-"""
-
 from __future__ import annotations
 
 from collections import Counter
@@ -114,7 +107,13 @@ class Lexer:
             self.column += 1
         return char
 
-    def _add(self, token_type: str, line: int, column: int, attribute=None) -> None:
+    def _add_token(
+        self,
+        token_type: str,
+        line: int,
+        column: int,
+        attribute: str | int | float | None = None,
+    ) -> None:
         self.tokens.append(Token(token_type, self.stream.lexeme(), attribute, line, column))
 
     def tokenize(self) -> tuple[list[Token], dict[str, int]]:
@@ -139,15 +138,13 @@ class Lexer:
                 self._scan_comment(line, column)
             elif char in DELIMITERS:
                 self._advance()
-                self._add("DELIMITER", line, column, char)
-            elif self._scan_operator(line, column):
-                pass
-            else:
+                self._add_token("DELIMITER", line, column, char)
+            elif not self._scan_operator(line, column):
                 self._advance()
-                self._add("ERROR", line, column, "caractere invalido")
+                self._add_token("ERROR", line, column, "caractere invalido")
 
         self.stream.start_lexeme()
-        self._add("EOF", self.line, self.column)
+        self._add_token("EOF", self.line, self.column)
         return self.tokens, dict(sorted(self.symbol_table.items()))
 
     def _scan_identifier(self, line: int, column: int) -> None:
@@ -155,10 +152,10 @@ class Lexer:
             self._advance()
         lexeme = self.stream.lexeme()
         if lexeme in KEYWORDS:
-            self._add("KEYWORD", line, column, lexeme)
+            self._add_token("KEYWORD", line, column, lexeme)
         else:
             self.symbol_table[lexeme] += 1
-            self._add("IDENTIFIER", line, column, lexeme)
+            self._add_token("IDENTIFIER", line, column, lexeme)
 
     def _scan_number(self, line: int, column: int) -> None:
         while self.stream.peek().isascii() and self.stream.peek().isdigit():
@@ -167,55 +164,58 @@ class Lexer:
         if self._is_letter(self.stream.peek()):
             while self._is_identifier_part(self.stream.peek()):
                 self._advance()
-            self._add("ERROR", line, column, "identificador iniciado por numero")
+            self._add_token("ERROR", line, column, "identificador iniciado por numero")
             return
 
         if self.stream.peek() == "," and self.stream.peek(1).isdigit():
             self._advance()
             while self.stream.peek().isascii() and self.stream.peek().isdigit():
                 self._advance()
-            self._add("ERROR", line, column, "use ponto como separador decimal")
+            self._add_token("ERROR", line, column, "use ponto como separador decimal")
             return
 
         if self.stream.peek() == "." and self.stream.peek(1).isdigit():
             self._advance()
             while self.stream.peek().isascii() and self.stream.peek().isdigit():
                 self._advance()
-            self._add("FLOAT_LITERAL", line, column, float(self.stream.lexeme()))
+            self._add_token("FLOAT_LITERAL", line, column, float(self.stream.lexeme()))
             return
 
-        self._add("INTEGER_LITERAL", line, column, int(self.stream.lexeme()))
+        self._add_token("INTEGER_LITERAL", line, column, int(self.stream.lexeme()))
 
     def _scan_string(self, line: int, column: int) -> None:
-        self._advance()  # aspas iniciais
-        valid = True
-        reason = "string nao terminada"
+        self._advance()
+        is_valid = True
+        error_message = "string nao terminada"
         while not self.stream.at_end and self.stream.peek() not in {'"', "\n", "\r"}:
             if self.stream.peek() == "\\":
                 self._advance()
                 if self.stream.at_end:
                     break
                 if self.stream.peek() not in VALID_ESCAPES:
-                    valid, reason = False, "escape invalido em string"
+                    is_valid = False
+                    error_message = "escape invalido em string"
             self._advance()
         if self.stream.peek() == '"':
             self._advance()
-            if valid:
-                self._add("STRING_LITERAL", line, column, self._decode_quoted(self.stream.lexeme()))
+            if is_valid:
+                self._add_token(
+                    "STRING_LITERAL", line, column, self._decode_quoted(self.stream.lexeme())
+                )
             else:
-                self._add("ERROR", line, column, reason)
+                self._add_token("ERROR", line, column, error_message)
         else:
-            self._add("ERROR", line, column, "string nao terminada")
+            self._add_token("ERROR", line, column, "string nao terminada")
 
     def _scan_character(self, line: int, column: int) -> None:
-        self._advance()  # aspas iniciais
-        valid = True
+        self._advance()
+        is_valid = True
         if self.stream.peek() in {"", "\n", "\r", "'"}:
-            valid = False
+            is_valid = False
         elif self.stream.peek() == "\\":
             self._advance()
             if self.stream.peek() not in VALID_ESCAPES:
-                valid = False
+                is_valid = False
             if self.stream.peek():
                 self._advance()
         else:
@@ -224,16 +224,16 @@ class Lexer:
         if self.stream.peek() == "'":
             self._advance()
         else:
-            valid = False
+            is_valid = False
             while not self.stream.at_end and self.stream.peek() not in {"'", "\n", "\r"}:
                 self._advance()
             if self.stream.peek() == "'":
                 self._advance()
 
-        if valid:
-            self._add("CHAR_LITERAL", line, column, self._decode_quoted(self.stream.lexeme()))
+        if is_valid:
+            self._add_token("CHAR_LITERAL", line, column, self._decode_quoted(self.stream.lexeme()))
         else:
-            self._add("ERROR", line, column, "literal de caractere invalido")
+            self._add_token("ERROR", line, column, "literal de caractere invalido")
 
     def _scan_comment(self, line: int, column: int) -> None:
         self._advance()
@@ -248,7 +248,7 @@ class Lexer:
                 self._advance()
                 return
             self._advance()
-        self._add("ERROR", line, column, "comentario de bloco nao terminado")
+        self._add_token("ERROR", line, column, "comentario de bloco nao terminado")
 
     def _scan_operator(self, line: int, column: int) -> bool:
         for size in (4, 3, 2, 1):
@@ -257,9 +257,9 @@ class Lexer:
                 for _ in range(size):
                     self._advance()
                 if candidate in {"===", "!=="}:
-                    self._add("ERROR", line, column, "operador invalido em Java")
+                    self._add_token("ERROR", line, column, "operador invalido em Java")
                 else:
-                    self._add("OPERATOR", line, column, candidate)
+                    self._add_token("OPERATOR", line, column, candidate)
                 return True
         return False
 

@@ -1,5 +1,3 @@
-"""Gramatica e algoritmos para construcao automatica de um analisador LL(1)."""
-
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -10,8 +8,6 @@ EPSILON = "ε"
 ENDMARKER = "$"
 START_SYMBOL = "PROG"
 
-# Uma producao vazia representa epsilon. A ordem e mantida para que conjuntos,
-# mensagens e a tabela tenham uma apresentacao deterministica.
 GRAMMAR: dict[str, tuple[tuple[str, ...], ...]] = {
     "PROG": (("public", "class", "id", "{", "public", "static", "void", "id", "(", ")", "{", "CMDS", "}", "}"),),
     "CMDS": (("CMD", "CMDS"), ()),
@@ -41,7 +37,7 @@ ParseTable = dict[tuple[str, str], Production]
 
 
 class GrammarConflictError(ValueError):
-    """Indica que duas producoes tentam ocupar a mesma celula da tabela."""
+    pass
 
 
 @dataclass(frozen=True)
@@ -56,13 +52,13 @@ def nonterminals(grammar: dict[str, tuple[Production, ...]] = GRAMMAR) -> set[st
 
 
 def terminals(grammar: dict[str, tuple[Production, ...]] = GRAMMAR) -> set[str]:
-    nts = nonterminals(grammar)
+    grammar_nonterminals = nonterminals(grammar)
     return {
         symbol
         for alternatives in grammar.values()
         for production in alternatives
         for symbol in production
-        if symbol not in nts
+        if symbol not in grammar_nonterminals
     }
 
 
@@ -71,15 +67,14 @@ def first_of_sequence(
     first: dict[str, set[str]],
     grammar: dict[str, tuple[Production, ...]] = GRAMMAR,
 ) -> set[str]:
-    """Calcula FIRST para uma sequencia usando os conjuntos ja conhecidos."""
     symbols = tuple(sequence)
     if not symbols:
         return {EPSILON}
 
     result: set[str] = set()
-    nts = nonterminals(grammar)
+    grammar_nonterminals = nonterminals(grammar)
     for symbol in symbols:
-        symbol_first = first[symbol] if symbol in nts else {symbol}
+        symbol_first = first[symbol] if symbol in grammar_nonterminals else {symbol}
         result.update(symbol_first - {EPSILON})
         if EPSILON not in symbol_first:
             break
@@ -91,15 +86,15 @@ def first_of_sequence(
 def compute_first(
     grammar: dict[str, tuple[Production, ...]] = GRAMMAR,
 ) -> dict[str, set[str]]:
-    first = {nt: set() for nt in grammar}
+    first = {nonterminal: set() for nonterminal in grammar}
     changed = True
     while changed:
         changed = False
-        for nt, alternatives in grammar.items():
+        for nonterminal, alternatives in grammar.items():
             for production in alternatives:
-                before = len(first[nt])
-                first[nt].update(first_of_sequence(production, first, grammar))
-                changed |= len(first[nt]) != before
+                previous_size = len(first[nonterminal])
+                first[nonterminal].update(first_of_sequence(production, first, grammar))
+                changed |= len(first[nonterminal]) != previous_size
     return first
 
 
@@ -108,9 +103,9 @@ def compute_follow(
     grammar: dict[str, tuple[Production, ...]] = GRAMMAR,
     start_symbol: str = START_SYMBOL,
 ) -> dict[str, set[str]]:
-    follow = {nt: set() for nt in grammar}
+    follow = {nonterminal: set() for nonterminal in grammar}
     follow[start_symbol].add(ENDMARKER)
-    nts = nonterminals(grammar)
+    grammar_nonterminals = nonterminals(grammar)
 
     changed = True
     while changed:
@@ -118,14 +113,14 @@ def compute_follow(
         for left, alternatives in grammar.items():
             for production in alternatives:
                 for index, symbol in enumerate(production):
-                    if symbol not in nts:
+                    if symbol not in grammar_nonterminals:
                         continue
                     suffix_first = first_of_sequence(production[index + 1 :], first, grammar)
-                    before = len(follow[symbol])
+                    previous_size = len(follow[symbol])
                     follow[symbol].update(suffix_first - {EPSILON})
                     if EPSILON in suffix_first:
                         follow[symbol].update(follow[left])
-                    changed |= len(follow[symbol]) != before
+                    changed |= len(follow[symbol]) != previous_size
     return follow
 
 
